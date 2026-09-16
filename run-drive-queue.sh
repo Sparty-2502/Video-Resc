@@ -65,11 +65,6 @@ expected_output_name() {
   printf '%s_4x.%s\n' "$base" "$ext"
 }
 
-remote_output_exists() {
-  local out="$1"
-  rclone "${RCLONE_ARGS[@]}" lsjson "$REMOTE_OUT/$out" --stat >/dev/null 2>&1
-}
-
 validate_video() {
   local file="$1"
   [[ -s "$file" ]] || return 1
@@ -193,17 +188,30 @@ echo
 
 while true; do
   echo '== Escaneando Drive =='
-
+  echo 'Listando entradas...'
   mapfile -t ALL_REMOTE < <(
     rclone "${RCLONE_ARGS[@]}" lsf "$REMOTE_IN" --files-only | sort
   )
+
+  echo 'Listando salidas existentes...'
+  mapfile -t ALL_OUTPUTS < <(
+    rclone "${RCLONE_ARGS[@]}" lsf "$REMOTE_OUT" --files-only 2>/dev/null | sort || true
+  )
+
+  declare -A OUTPUT_SET=()
+  for out_file in "${ALL_OUTPUTS[@]}"; do
+    [[ -n "$out_file" ]] && OUTPUT_SET["$out_file"]=1
+  done
+
+  echo "Entradas encontradas: ${#ALL_REMOTE[@]}"
+  echo "Salidas encontradas:  ${#ALL_OUTPUTS[@]}"
 
   PENDING=()
   for file in "${ALL_REMOTE[@]}"; do
     [[ -z "$file" ]] && continue
     is_video_name "$file" || continue
     out="$(expected_output_name "$file")"
-    if remote_output_exists "$out"; then
+    if [[ -n "${OUTPUT_SET[$out]:-}" ]]; then
       echo "SKIP remoto terminado: $file -> $out"
     else
       PENDING+=("$file")
