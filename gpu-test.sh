@@ -27,8 +27,8 @@ echo "$VK_SUMMARY" | sed -n '/Devices:/,$p' | head -80
 VULKAN_COUNT="$(printf '%s\n' "$VK_SUMMARY" | grep -ciE 'deviceName.*NVIDIA|deviceName.*GeForce RTX' || true)"
 
 echo
-echo '== Video2X --list-gpus =='
-GPU_LIST="$($VIDEO2X_BIN --list-gpus 2>&1 || true)"
+echo '== Video2X -l =='
+GPU_LIST="$($VIDEO2X_BIN -l 2>&1 || true)"
 echo "$GPU_LIST"
 VIDEO2X_COUNT="$(printf '%s\n' "$GPU_LIST" | sed -n 's/^\([0-9][0-9]*\)\..*/\1/p' | wc -l | tr -d ' ')"
 
@@ -36,7 +36,7 @@ echo
 echo '== Resumen =='
 echo "nvidia-smi: $NVIDIA_COUNT GPU(s)"
 echo "Vulkan:     $VULKAN_COUNT GPU(s) NVIDIA"
-echo "Video2X:    $VIDEO2X_COUNT GPU(s)"
+echo "Video2X:    $VIDEO2X_COUNT dispositivo(s) Vulkan"
 
 if (( NVIDIA_COUNT < 1 || VULKAN_COUNT < 1 || VIDEO2X_COUNT < 1 )); then
   echo 'FAIL: el entorno no tiene una GPU utilizable por Video2X.' >&2
