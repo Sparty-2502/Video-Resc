@@ -5,6 +5,7 @@ INSTALL_DIR="${INSTALL_DIR:-/workspace/video2x-custom}"
 WORK_DIR="${WORK_DIR:-/workspace/video2x}"
 MODEL="${MODEL:-realesr-animevideov3}"
 SCALE="${SCALE:-4}"
+GPU_ID="${GPU_ID:-0}"
 
 if [[ $# -lt 1 ]]; then
   echo "Uso: $0 <archivo-entrada> [archivo-salida]" >&2
@@ -32,13 +33,17 @@ export LD_LIBRARY_PATH="$INSTALL_DIR/lib:${LD_LIBRARY_PATH:-}"
 
 cd "$INSTALL_DIR"
 
-echo "Entrada: $INPUT"
-echo "Salida:  $OUTPUT"
-echo "Log:     $LOG"
+echo "Entrada:  $INPUT"
+echo "Salida:   $OUTPUT"
+echo "Log:      $LOG"
+echo "GPU:      $GPU_ID"
+echo "Modelo:   $MODEL"
+echo "Escala:   ${SCALE}x"
 
 time "$INSTALL_DIR/bin/video2x" \
   -i "$INPUT" \
   -o "$OUTPUT" \
   -s "$SCALE" \
   -p realesrgan \
-  --realesrgan-model "$MODEL" 2>&1 | tee "$LOG"
+  --realesrgan-model "$MODEL" \
+  -g "$GPU_ID" 2>&1 | tee "$LOG"
