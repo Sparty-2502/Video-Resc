@@ -8,7 +8,7 @@ if command -v nvidia-smi >/dev/null 2>&1; then
   nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader
 else
   echo 'FAIL: nvidia-smi no disponible.'
-  FAIL=1
+  exit 2
 fi
 
 echo
@@ -29,6 +29,14 @@ else
   FAIL=1
 fi
 
+# Si el runtime gráfico de NVIDIA ya falta, no gastamos tiempo en pruebas de red.
+if (( FAIL != 0 )); then
+  echo
+echo 'RESULTADO: NO APTA para Video2X Real-ESRGAN/Vulkan.'
+  echo 'Descarta esta instancia; no ejecutes bootstrap.sh ni subas videos.'
+  exit 2
+fi
+
 echo
 echo '== Vulkan =='
 if ! command -v vulkaninfo >/dev/null 2>&1; then
@@ -42,8 +50,11 @@ echo "$VK_SUMMARY" | sed -n '/Devices:/,$p' | head -24
 if echo "$VK_SUMMARY" | grep -qiE 'deviceName.*NVIDIA|NVIDIA GeForce RTX'; then
   echo 'PASS: Vulkan detecta la GPU NVIDIA.'
 else
-  echo 'FAIL: Vulkan NO detecta la GPU NVIDIA. Descarta esta instancia antes de bootstrap/procesamiento.'
-  FAIL=1
+  echo 'FAIL: Vulkan NO detecta la GPU NVIDIA.'
+  echo
+echo 'RESULTADO: NO APTA para Video2X Real-ESRGAN/Vulkan.'
+  echo 'Descarta esta instancia; no ejecutes bootstrap.sh ni subas videos.'
+  exit 2
 fi
 
 echo
@@ -59,12 +70,5 @@ fi
 echo
 echo 'IMPORTANTE: este test no mide la ruta PC -> Vast.'
 echo 'Haz un SCP de ~100 MB desde tu PC antes de quedarte con la instancia.'
-
-if (( FAIL != 0 )); then
-  echo
-echo 'RESULTADO: NO APTA para Video2X Real-ESRGAN/Vulkan.'
-  exit 2
-fi
-
 echo
 echo 'RESULTADO: APTA para continuar con bootstrap.sh (falta validar SCP desde tu PC).'
