@@ -61,7 +61,7 @@ expected_output_name() {
 
 remote_output_exists() {
   local out="$1"
-  rclone "${RCLONE_ARGS[@]}" lsf "$REMOTE_OUT/$out" --files-only >/dev/null 2>&1
+  rclone "${RCLONE_ARGS[@]}" lsjson "$REMOTE_OUT/$out" --stat >/dev/null 2>&1
 }
 
 copy_input_from_drive() {
@@ -107,7 +107,7 @@ upload_output_to_drive() {
 
   local local_size remote_size
   local_size="$(stat -c '%s' "$local_output")"
-  remote_size="$(rclone "${RCLONE_ARGS[@]}" size "$REMOTE_OUT/$output_name" --json | python3 -c 'import json,sys; print(json.load(sys.stdin).get("bytes",0))')"
+  remote_size="$(rclone "${RCLONE_ARGS[@]}" lsjson "$REMOTE_OUT/$output_name" --stat | python3 -c 'import json,sys; print(json.load(sys.stdin).get("Size",0))')"
 
   if [[ "$remote_size" != "$local_size" ]]; then
     echo "ERROR: tamaño remoto ($remote_size) != local ($local_size): $output_name" >&2
