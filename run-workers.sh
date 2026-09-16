@@ -76,6 +76,16 @@ if [[ ${#FILES[@]} -eq 0 ]]; then
   exit 0
 fi
 
+is_valid_output() {
+  local file="$1"
+  [[ -s "$file" ]] || return 1
+  if command -v ffprobe >/dev/null 2>&1; then
+    ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$file" >/dev/null 2>&1
+  else
+    return 0
+  fi
+}
+
 PENDING=()
 SKIPPED=0
 for input in "${FILES[@]}"; do
@@ -83,10 +93,15 @@ for input in "${FILES[@]}"; do
   name="${base%.*}"
   ext="${base##*.}"
   final="$WORK_DIR/output/${name}_4x.${ext}"
-  if [[ -s "$final" ]]; then
-    echo "SKIP: ya existe salida terminada: $(basename "$final")"
+
+  if is_valid_output "$final"; then
+    echo "SKIP: salida válida ya existente: $(basename "$final")"
     ((SKIPPED+=1))
   else
+    if [[ -e "$final" ]]; then
+      echo "WARN: salida previa incompleta/no válida; se reprocesará: $(basename "$final")"
+      rm -f "$final"
+    fi
     PENDING+=("$input")
   fi
 done
@@ -117,6 +132,7 @@ cleanup() {
     kill "$pid" 2>/dev/null || true
   done
   wait 2>/dev/null || true
+  exit 130
 }
 trap cleanup INT TERM
 
@@ -136,6 +152,11 @@ launch_job() {
     echo "[$$] GPU $gpu -> Iniciando: $base"
     if GPU_ID="$gpu" INSTALL_DIR="$INSTALL_DIR" WORK_DIR="$WORK_DIR" \
       "$SCRIPT_DIR/run-video2x.sh" "$input" "$temp"; then
+      if command -v ffprobe >/dev/null 2>&1 && ! ffprobe -v error "$temp" >/dev/null 2>&1; then
+        echo "[$$] GPU $gpu -> ERROR: ffprobe no valida la salida: $base" >&2
+        rm -f "$temp"
+        exit 3
+      fi
       mv -f "$temp" "$final"
       echo "[$$] GPU $gpu -> Terminado OK: $base"
     else
@@ -166,8 +187,8 @@ reap_finished() {
         FAIL=1
         echo "Worker falló: ${PID_FILE[$pid]} (GPU $gpu, código $rc)" >&2
       fi
-      unset 'PID_GPU[$pid]'
-      unset 'PID_FILE[$pid]'
+      unset "PID_GPU[$pid]"
+      unset "PID_FILE[$pid]"
     fi
   done
 }
