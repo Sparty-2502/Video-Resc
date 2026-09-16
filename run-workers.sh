@@ -19,8 +19,6 @@ fi
 echo "Videos encontrados: ${#FILES[@]}"
 echo "Workers: $WORKERS"
 
-printf '%s\n' "${FILES[@]}" | xargs -0 2>/dev/null || true
-
 export SCRIPT_DIR WORK_DIR
 printf '%s\0' "${FILES[@]}" | xargs -0 -n1 -P "$WORKERS" bash -c '
   input="$1"
