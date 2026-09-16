@@ -18,7 +18,7 @@ nvidia-smi
 echo '== Instalando dependencias =='
 apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-  git curl ca-certificates build-essential cmake pkg-config ninja-build \
+  git curl ca-certificates python3 build-essential cmake pkg-config ninja-build \
   ffmpeg vulkan-tools libvulkan-dev glslang-tools libomp-dev \
   libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev \
   libavutil-dev libswscale-dev libboost-program-options-dev
@@ -35,7 +35,7 @@ cd "$SRC_DIR"
 
 echo '== Inicializando submódulos necesarios =='
 git submodule sync --recursive
-# Usamos Boost del sistema; evitamos el árbol recursivo completo de boost.
+# Usamos Boost del sistema; evitamos descargar third_party/boost completo.
 git submodule update --init --depth 1 \
   third_party/ncnn \
   third_party/spdlog \
@@ -43,27 +43,27 @@ git submodule update --init --depth 1 \
   third_party/librealcugan_ncnn_vulkan \
   third_party/librife_ncnn_vulkan
 
-# Algunos wrappers requieren sus submódulos internos (principalmente ncnn/glslang/pybind11).
+# Los wrappers y ncnn tienen submódulos internos necesarios para compilar.
 for module in \
   third_party/librealesrgan_ncnn_vulkan \
   third_party/librealcugan_ncnn_vulkan \
-  third_party/librife_ncnn_vulkan; do
-  if [[ -d "$module/.git" || -f "$module/.git" ]]; then
-    git -C "$module" submodule update --init --recursive --depth 1 || true
-  fi
+  third_party/librife_ncnn_vulkan \
+  third_party/ncnn; do
+  git -C "$module" submodule update --init --recursive --depth 1 || true
 done
-
-# Aseguramos submódulos internos de ncnn si fueran requeridos por el checkout.
-git -C third_party/ncnn submodule update --init --recursive --depth 1 || true
 
 echo "== Aplicando TILE_SIZE=$TILE_SIZE =="
 python3 - <<PY
 from pathlib import Path
+import re
 p = Path('$SRC_DIR/src/filter_realesrgan.cpp')
 s = p.read_text()
-import re
-s2, n = re.subn(r'realesrgan_->tilesize = (?:200|512|768|1024|1536|2048);',
-                 'realesrgan_->tilesize = $TILE_SIZE;', s, count=1)
+s2, n = re.subn(
+    r'realesrgan_->tilesize = (?:200|512|768|1024|1536|2048);',
+    'realesrgan_->tilesize = $TILE_SIZE;',
+    s,
+    count=1,
+)
 if n != 1:
     raise SystemExit('No se encontró la asignación principal de tilesize para modificar.')
 p.write_text(s2)
@@ -76,7 +76,6 @@ rm -rf build "$INSTALL_DIR"
 cmake -G Ninja -B build -S . \
   -DVIDEO2X_USE_EXTERNAL_NCNN=OFF \
   -DVIDEO2X_USE_EXTERNAL_SPDLOG=OFF \
-  -DVIDEO2X_USE_EXTERNAL_BOOST=ON \
   -DCMAKE_CXX_COMPILER=g++ \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR"
