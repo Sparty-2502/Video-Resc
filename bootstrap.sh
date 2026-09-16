@@ -66,7 +66,6 @@ cd "$SRC_DIR"
 
 echo '== Inicializando submódulos necesarios =='
 git submodule sync --recursive
-# Usamos Boost del sistema; evitamos descargar third_party/boost completo.
 git submodule update --init --depth 1 \
   third_party/ncnn \
   third_party/spdlog \
@@ -128,12 +127,12 @@ export LD_LIBRARY_PATH="$INSTALL_DIR/lib:${LD_LIBRARY_PATH:-}"
 
 echo '== Validación final =='
 "$INSTALL_DIR/bin/video2x" --help >/dev/null
-GPU_LIST="$("$INSTALL_DIR/bin/video2x" --list-gpus 2>&1 || true)"
+GPU_LIST="$("$INSTALL_DIR/bin/video2x" -l 2>&1 || true)"
 echo "$GPU_LIST"
 VIDEO2X_GPU_COUNT="$(printf '%s\n' "$GPU_LIST" | sed -n 's/^\([0-9][0-9]*\)\..*/\1/p' | wc -l | tr -d ' ')"
 
 if (( VIDEO2X_GPU_COUNT < 1 )); then
-  echo 'ERROR: Video2X compiló, pero no detecta ninguna GPU Vulkan.' >&2
+  echo 'ERROR: Video2X compiló, pero no detecta ningún dispositivo Vulkan.' >&2
   exit 3
 fi
 if (( VIDEO2X_GPU_COUNT < NVIDIA_GPU_COUNT )); then
