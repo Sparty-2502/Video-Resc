@@ -2,13 +2,22 @@
 set -euo pipefail
 
 FAIL=0
+EXPECTED_GPUS="${EXPECTED_GPUS:-0}"
 
-echo '== GPU =='
+echo '== GPU NVIDIA =='
 if command -v nvidia-smi >/dev/null 2>&1; then
-  nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader
+  nvidia-smi --query-gpu=index,name,memory.total,driver_version --format=csv,noheader
 else
   echo 'FAIL: nvidia-smi no disponible.'
   exit 2
+fi
+
+NVIDIA_GPU_COUNT="$(nvidia-smi --query-gpu=index --format=csv,noheader | wc -l | tr -d ' ')"
+echo "GPUs NVIDIA detectadas por nvidia-smi: $NVIDIA_GPU_COUNT"
+
+if [[ "$EXPECTED_GPUS" =~ ^[0-9]+$ ]] && (( EXPECTED_GPUS > 0 )) && (( NVIDIA_GPU_COUNT != EXPECTED_GPUS )); then
+  echo "FAIL: se esperaban $EXPECTED_GPUS GPU(s), pero nvidia-smi detectó $NVIDIA_GPU_COUNT."
+  FAIL=1
 fi
 
 echo
@@ -29,33 +38,50 @@ else
   FAIL=1
 fi
 
-# Si el runtime gráfico de NVIDIA ya falta, no gastamos tiempo en pruebas de red.
 if (( FAIL != 0 )); then
   echo
 echo 'RESULTADO: NO APTA para Video2X Real-ESRGAN/Vulkan.'
-  echo 'Descarta esta instancia; no ejecutes bootstrap.sh ni subas videos.'
+  echo 'No ejecutes bootstrap.sh ni subas videos todavía.'
   exit 2
 fi
 
 echo
 echo '== Vulkan =='
 if ! command -v vulkaninfo >/dev/null 2>&1; then
-  echo 'vulkaninfo no está instalado; instalando vulkan-tools para validar la instancia...'
-  apt-get update -qq
-  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq vulkan-tools >/dev/null
+  if command -v apt-get >/dev/null 2>&1; then
+    echo 'vulkaninfo no está instalado; instalando vulkan-tools para validar la instancia...'
+    apt-get update -qq
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq vulkan-tools >/dev/null
+  else
+    echo 'FAIL: vulkaninfo no está instalado y este sistema no usa apt-get.'
+    echo 'Instala vulkan-tools con el gestor de paquetes de tu distribución y repite la prueba.'
+    exit 2
+  fi
 fi
 
 VK_SUMMARY="$(vulkaninfo --summary 2>&1 || true)"
-echo "$VK_SUMMARY" | sed -n '/Devices:/,$p' | head -24
-if echo "$VK_SUMMARY" | grep -qiE 'deviceName.*NVIDIA|NVIDIA GeForce RTX'; then
-  echo 'PASS: Vulkan detecta la GPU NVIDIA.'
-else
-  echo 'FAIL: Vulkan NO detecta la GPU NVIDIA.'
-  echo
-echo 'RESULTADO: NO APTA para Video2X Real-ESRGAN/Vulkan.'
-  echo 'Descarta esta instancia; no ejecutes bootstrap.sh ni subas videos.'
+echo "$VK_SUMMARY" | sed -n '/Devices:/,$p' | head -80
+
+VULKAN_NVIDIA_COUNT="$(printf '%s\n' "$VK_SUMMARY" | grep -ciE 'deviceName.*NVIDIA|deviceName.*GeForce RTX' || true)"
+echo "GPUs NVIDIA detectadas por Vulkan: $VULKAN_NVIDIA_COUNT"
+
+if (( VULKAN_NVIDIA_COUNT < 1 )); then
+  echo 'FAIL: Vulkan NO detecta ninguna GPU NVIDIA.'
   exit 2
 fi
+
+if (( VULKAN_NVIDIA_COUNT < NVIDIA_GPU_COUNT )); then
+  echo "FAIL: nvidia-smi ve $NVIDIA_GPU_COUNT GPU(s), pero Vulkan solo ve $VULKAN_NVIDIA_COUNT."
+  echo 'Para una instancia multi-GPU necesitamos que Vulkan exponga todas las GPUs que se usarán.'
+  exit 2
+fi
+
+if [[ "$EXPECTED_GPUS" =~ ^[0-9]+$ ]] && (( EXPECTED_GPUS > 0 )) && (( VULKAN_NVIDIA_COUNT < EXPECTED_GPUS )); then
+  echo "FAIL: se esperaban $EXPECTED_GPUS GPU(s) disponibles en Vulkan."
+  exit 2
+fi
+
+echo "PASS: Vulkan detecta correctamente $VULKAN_NVIDIA_COUNT GPU(s) NVIDIA."
 
 echo
 echo '== Descarga GitHub =='
@@ -68,7 +94,7 @@ else
 fi
 
 echo
-echo 'IMPORTANTE: este test no mide la ruta PC -> Vast.'
+echo 'IMPORTANTE: este test no mide la ruta PC -> servidor.'
 echo 'Haz un SCP de ~100 MB desde tu PC antes de quedarte con la instancia.'
 echo
-echo 'RESULTADO: APTA para continuar con bootstrap.sh (falta validar SCP desde tu PC).'
+echo "RESULTADO: APTA con $VULKAN_NVIDIA_COUNT GPU(s) NVIDIA para continuar con bootstrap.sh."
