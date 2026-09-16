@@ -23,6 +23,23 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev \
   libavutil-dev libswscale-dev libboost-program-options-dev
 
+echo '== Validando Vulkan NVIDIA ANTES de clonar/compilar =='
+if ! ldconfig -p 2>/dev/null | grep -Eq 'lib(GLX|EGL)_nvidia\.so'; then
+  echo 'ERROR: el contenedor no expone libGLX_nvidia.so/libEGL_nvidia.so.' >&2
+  echo 'Esta instancia no es apta para Video2X Real-ESRGAN/Vulkan. Descartala.' >&2
+  exit 2
+fi
+
+VK_SUMMARY="$(vulkaninfo --summary 2>&1 || true)"
+if ! echo "$VK_SUMMARY" | grep -qiE 'deviceName.*NVIDIA|NVIDIA GeForce RTX'; then
+  echo "$VK_SUMMARY" >&2
+  echo 'ERROR: Vulkan no detecta una GPU NVIDIA. Abortando antes de descargar/compilar.' >&2
+  exit 2
+fi
+
+echo "$VK_SUMMARY" | sed -n '/Devices:/,$p' | head -20
+echo 'Vulkan NVIDIA OK.'
+
 mkdir -p "$WORK_DIR/input" "$WORK_DIR/output" "$WORK_DIR/logs"
 
 if [[ ! -d "$SRC_DIR/.git" ]]; then
@@ -96,9 +113,15 @@ EOF
 
 export LD_LIBRARY_PATH="$INSTALL_DIR/lib:${LD_LIBRARY_PATH:-}"
 
-echo '== Validación =='
+echo '== Validación final =='
 "$INSTALL_DIR/bin/video2x" --help >/dev/null
-vulkaninfo --summary 2>/dev/null | grep -m1 -A8 'GPU0:' || true
+VK_SUMMARY="$(vulkaninfo --summary 2>&1 || true)"
+if ! echo "$VK_SUMMARY" | grep -qiE 'deviceName.*NVIDIA|NVIDIA GeForce RTX'; then
+  echo "$VK_SUMMARY" >&2
+  echo 'ERROR: Vulkan dejó de estar disponible después de la instalación.' >&2
+  exit 3
+fi
+echo "$VK_SUMMARY" | sed -n '/Devices:/,$p' | head -20
 
 echo
 echo 'Listo.'
