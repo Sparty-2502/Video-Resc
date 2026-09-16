@@ -46,4 +46,4 @@ time "$INSTALL_DIR/bin/video2x" \
   -s "$SCALE" \
   -p realesrgan \
   --realesrgan-model "$MODEL" \
-  -g "$GPU_ID" 2>&1 | tee "$LOG"
+  -d "$GPU_ID" 2>&1 | tee "$LOG"
