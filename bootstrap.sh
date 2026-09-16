@@ -27,7 +27,7 @@ echo '== Instalando dependencias =='
 apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   git curl ca-certificates python3 build-essential cmake pkg-config ninja-build \
-  ffmpeg vulkan-tools libvulkan-dev glslang-tools libomp-dev \
+  ffmpeg rclone vulkan-tools libvulkan-dev glslang-tools libomp-dev \
   libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev \
   libavutil-dev libswscale-dev libboost-program-options-dev
 
