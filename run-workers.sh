@@ -27,13 +27,13 @@ if ! [[ "$WORKERS_PER_GPU" =~ ^[1-9][0-9]*$ ]]; then
   exit 2
 fi
 
-echo '== GPUs visibles para Video2X =='
-GPU_LIST="$($VIDEO2X_BIN --list-gpus 2>&1 || true)"
+echo '== Dispositivos Vulkan visibles para Video2X =='
+GPU_LIST="$($VIDEO2X_BIN -l 2>&1 || true)"
 echo "$GPU_LIST"
 mapfile -t AVAILABLE_GPU_IDS < <(printf '%s\n' "$GPU_LIST" | sed -n 's/^\([0-9][0-9]*\)\..*/\1/p')
 
 if [[ ${#AVAILABLE_GPU_IDS[@]} -eq 0 ]]; then
-  echo 'ERROR: Video2X no detectó ninguna GPU Vulkan.' >&2
+  echo 'ERROR: Video2X no detectó ningún dispositivo Vulkan.' >&2
   exit 2
 fi
 
@@ -57,7 +57,7 @@ for gpu in "${GPU_IDS[@]}"; do
     fi
   done
   if (( found == 0 )); then
-    echo "ERROR: GPU $gpu no aparece en video2x --list-gpus." >&2
+    echo "ERROR: GPU $gpu no aparece en video2x -l." >&2
     exit 2
   fi
 done
